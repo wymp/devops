@@ -18,6 +18,9 @@ runs:
         CHECKED_OUT="$([ -e ${{ inputs.test-file || 'package.json' }} ] && echo true || echo false)"
         echo "CHECKED_OUT=$CHECKED_OUT"
         echo "CHECKED_OUT=$CHECKED_OUT" >> $GITHUB_ENV
+        SCRIPTS_PATH="$GITHUB_ACTION_PATH/../../scripts"
+        echo "SCRIPTS_PATH=$SCRIPTS_PATH"
+        echo "SCRIPTS_PATH=$SCRIPTS_PATH" >> $GITHUB_ENV
 
     - name: Checkout
       if: env.CHECKED_OUT == 'false'
@@ -26,11 +29,11 @@ runs:
     - name: Get Versions
       shell: bash
       run: |
-        NODE_VERSION="$(./scripts/.internal/getEngineVersion.js node)"
+        NODE_VERSION="$("$SCRIPTS_PATH/getEngineVersion.js" node)"
         echo "NODE_VERSION=$NODE_VERSION"
         echo "NODE_VERSION=$NODE_VERSION" >> $GITHUB_ENV
 
-        PNPM_VERSION="$(./scripts/.internal/getEngineVersion.js pnpm)"
+        PNPM_VERSION="$("$SCRIPTS_PATH/getEngineVersion.js" pnpm)"
         echo "PNPM_VERSION=$PNPM_VERSION"
         echo "PNPM_VERSION=$PNPM_VERSION" >> $GITHUB_ENV
 
@@ -54,7 +57,7 @@ runs:
           ${{ runner.os }}-pnpm-store-
 
     - name: Install deps
-      if: inputs.skip-install != 'true'
+      if: inputs.skip-install == 'false'
       shell: bash
       run: |
         if [ -n "${{ inputs.npm-token }}" ]; then
