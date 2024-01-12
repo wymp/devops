@@ -1,0 +1,63 @@
+name: Setup Node/PNPM Environment
+description: Check out the repo, if necessary, set up node and pnpm using the versions defined in `package.json::engines`, and (optionally) install dependencies.
+inputs:
+  npm-token:
+    description: Your npm token for installing private packages from npm (optional if you don't use private packages)
+  skip-install:
+    description: Skip installing dependencies (optional)
+    default: false
+  test-file:
+    description: A file whose presence indicates that the repo is checked out (optional - defaults to `package.json`)
+    default: package.json
+runs:
+  using: composite
+  steps:
+    - name: Pre-Setup
+      shell: bash
+      run: |
+        CHECKED_OUT="$([ -e ${{ inputs.test-file || 'package.json' }} ] && echo true || echo false)"
+        echo "CHECKED_OUT=$CHECKED_OUT"
+        echo "CHECKED_OUT=$CHECKED_OUT" >> $GITHUB_ENV
+
+    - name: Checkout
+      if: env.CHECKED_OUT == 'false'
+      uses: actions/checkout@v4
+
+    - name: Get Versions
+      shell: bash
+      run: |
+        NODE_VERSION="$(./scripts/.internal/getEngineVersion.js node)"
+        echo "NODE_VERSION=$NODE_VERSION"
+        echo "NODE_VERSION=$NODE_VERSION" >> $GITHUB_ENV
+
+        PNPM_VERSION="$(./scripts/.internal/getEngineVersion.js pnpm)"
+        echo "PNPM_VERSION=$PNPM_VERSION"
+        echo "PNPM_VERSION=$PNPM_VERSION" >> $GITHUB_ENV
+
+    - name: Install pnpm
+      shell: bash
+      run: |
+        npm i -g pnpm@${{ env.PNPM_VERSION }}
+        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+    - name: Install node
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Set up caching for pnpm
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Install deps
+      if: inputs.skip-install != 'true'
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.npm-token }}" ]; then
+          echo "//registry.npmjs.org/:_authToken=${{ inputs.npm-token }}" >> ~/.npmrc
+        fi
+        pnpm --frozen-lockfile install
